@@ -60,12 +60,27 @@ function [retval] = patternsearch(x0,alpha0,objectivefunction,basis,order,tauplu
   global tabu; % Not to evaluate the last successful move
   global successfulDirection;
   
-  if nargin < 3
-    strfitnessfct = 'sphere';
-  else
-    strfitnessfct = objectivefunction;
+  if nargin == 0
+    x0 = (10.*rand(2,1))-5; alpha0=0.2; objectivefunction='sphere';
+    basis = 'standard'; order = 'same'; tauplus = 1; tauminus = 0.5;
+  elseif nargin < 2
+    alpha0=0.2; objectivefunction='sphere';
+    basis = 'standard'; order = 'same'; tauplus = 1; tauminus = 0.5;
+  elseif nargin < 3
+    objectivefunction='sphere';
+    basis = 'standard'; order = 'same'; tauplus = 1; tauminus = 0.5;
+  elseif nargin < 4
+    basis = 'standard'; order = 'same'; tauplus = 1; tauminus = 0.5;
+  elseif nargin < 5
+    order = 'same'; tauplus = 1; tauminus = 0.5;
+  elseif nargin < 6
+    tauplus = 1; tauminus = 0.5;
+  elseif nargin < 7
+    tauminus = 0.5;
   endif
-   
+  
+  
+  strfitnessfct = objectivefunction;
   N = size(x0,1);
   alphak = alpha0;
   xk = x0;
@@ -80,22 +95,16 @@ function [retval] = patternsearch(x0,alpha0,objectivefunction,basis,order,tauplu
   fxk = feval(strfitnessfct, xk);
   numberevaluations = 1;
   tabu = xk;
-  Succ = horzcat(xk);
-  Unsucc =  horzcat(xk);
+  Succ = vertcat(xk,fxk);
+  Unsucc =  vertcat(xk,fxk);
   
   %printf("Iter %d fx %f Vector %s \n",k,fxk,mat2str(transpose(xk)));
   printf("Iter %d fx %f\n",k,fxk);
   
   % -- Prepearing for pollstep
-  if nargin < 7
-    ord = 'same';
-    taup = 1;
-    taum = 0.5;
-  else
-    ord = order;
-    taup = tauplus;
-    taum = tauminus;
-  endif
+  ord = order;
+  taup = tauplus;
+  taum = tauminus;
   
   % In the case that we want to prioritaze the order
   % of evaluation in the mesh starting from the last 
@@ -111,7 +120,7 @@ function [retval] = patternsearch(x0,alpha0,objectivefunction,basis,order,tauplu
   
   % --------------------  Main loop -------------------------------------
 
-  while (k < 10000) && (fxk > 0.0001)
+  while (k < 10000) && (fxk > 0.001)
     pollstep(ord,taup,taum);
   endwhile
   % --------------------  End main loop ---------------------------------
@@ -163,10 +172,10 @@ function pollstep(order,tauplus,tauminus)
       if ( newfval < fxk )
         ksuccessful = 1;
         successfulDirection = i;
-        Succ = cat(2,Succ,xpp);
+        Succ = horzcat(Succ,vertcat(xpp,newfval));
         break;
       else
-        Unsucc = cat(2,Unsucc,xpp);
+        Unsucc = horzcat(Unsucc,vertcat(xpp,newfval));
       endif 
     endif
   end
@@ -237,7 +246,7 @@ end
 
 % ---------------------------------------------------------------  
 % --------------------  Auxiliary functions  --------------------  
-% ---------------------------------------------------------------  
+% -------------200--------------------------------------------------  
 
 % --------------------  Simplex --------------------------------  
 function V=simplex(N)
@@ -278,10 +287,10 @@ function plot3D()
   global Succ;
   global Unsucc;
   
-  x1min=-3;
-  x1max=3;
-  x2min=-3;
-  x2max=3;
+  x1min=-5;
+  x1max=5;
+  x2min=-5;
+  x2max=5;
   R=150; % steps resolution
   x1=x1min:(x1max-x1min)/R:x1max;
   x2=x2min:(x2max-x2min)/R:x2max;
@@ -290,11 +299,17 @@ function plot3D()
     for i=1:length(x2)
         x = vertcat (x1(j),x2(i));
         f(i) = feval(strfitnessfct, x);
+        printf ("",x1(j),x2(i),f(i));
+        fit(i,j) = f(i);
     end
     f_tot(j,:)=f;
   end
   
+
+  
   figure(1)
+  plot3(Succ(2,1:end),Succ(1,1:end),Succ(3,1:end),'color','red','linewidth',5);
+  hold on;
   meshc(x1,x2,f_tot);colorbar;set(gca,'FontSize',12);
   xlabel('x_2','FontName','Times','FontSize',20,'FontAngle','italic');
   set(get(gca,'xlabel'),'rotation',25,'VerticalAlignment','bottom');
@@ -302,12 +317,13 @@ function plot3D()
   set(get(gca,'ylabel'),'rotation',-25,'VerticalAlignment','bottom');
   zlabel('f(X)','FontName','Times','FontSize',20,'FontAngle','italic');
   title(strfitnessfct,'FontName','Times','FontSize',24,'FontWeight','bold');
+  hold off;
   
   figure(2)
   hold on;
   contour(x1,x2,f_tot);
   %plot(xk(1),xk(2),"s");
-  plot(Succ(1,1:end),Succ(2,1:end),"s");
+  plot(Succ(2,1:end),Succ(1,1:end),"s");
   %plot(Unsucc(1,1:end),Unsucc(2,1:end),"*");
   hold off;
   
