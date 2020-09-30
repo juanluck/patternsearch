@@ -27,6 +27,7 @@
 % alpha0 the initial step size
 % objectivefunction can be:
 %                           - sphere
+%                           - ellipsoid
 %                           - rosenbrock
 %                           - bentcigar
 %                           - bentcigarshiftedrotated (TODO: fix for dimensions upper than 2)
@@ -120,7 +121,7 @@ function [retval] = patternsearch(x0,alpha0,objectivefunction,basis,order,tauplu
   
   % --------------------  Main loop -------------------------------------
 
-  while (k < 10000) && (fxk > 0.001)
+  while (k < 20000) && (fxk > 0.001)
     pollstep(ord,taup,taum);
   endwhile
   % --------------------  End main loop ---------------------------------
@@ -207,6 +208,18 @@ end
 function f=rosenbrock(x)
     if size(x,1) < 2 error('dimension must be greater one'); end
     f = 100*sum((x(1:end-1).^2 - x(2:end)).^2) + sum((x(1:end-1)-1).^2);
+end
+
+
+% --------------------  Ellipsoid  ---------------------------------  
+function f=ellipsoid(x)
+  dim = size(x,1);
+  if dim < 1 error('dimension must be greater than zero'); end
+  f = 0;
+  for i = 1:dim
+    f = f + (50*(i^2*x(i))^2);
+  endfor
+  
 end
 
 % --------------------  Sphere  ---------------------------------  
