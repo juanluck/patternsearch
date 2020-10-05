@@ -1,5 +1,11 @@
 % Implementation of the Aguilera-Perez Algorithm.
 % Aguilera, Antonio, and Ricardo Pérez-Aguila. "General n-dimensional rotations." (2004).
+% Found here : https://stackoverflow.com/questions/50337642/how-to-calculate-a-rotation-matrix-in-n-dimensions-given-the-point-to-rotate-an
+% https://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.4.8662
+%
+% Aguilera, Antonio; Peréz-Aguila, Ricardo; General n-dimensional rotations
+% WSCG '2004: Short Communications: the 12-th International Conference in Central Europe on Computer Graphics, Visualization and Computer Vision 2004, 2.-6. February 2004 Plzeň, p. 1-8.
+%
 function M = rotmnd(v,theta)
     n = size(v,1);
     M = eye(n);
@@ -15,3 +21,4 @@ function M = rotmnd(v,theta)
     R = eye(n);
     R([n-1 n],[n-1 n]) = [cos(theta) -sin(theta); sin(theta) cos(theta)];
     M = M\R*M;
+end

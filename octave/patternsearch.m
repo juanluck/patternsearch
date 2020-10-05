@@ -28,9 +28,10 @@
 % objectivefunction can be:
 %                           - sphere
 %                           - ellipsoid
+%                           - rotatedEllipsoid
 %                           - rosenbrock
 %                           - bentcigar
-%                           - bentcigarshiftedrotated (TODO: fix for dimensions upper than 2)
+%                           - bentcigarshiftedrotated 
 % basis can be:
 %                           - simplex
 %                           - standard/cartesian (default)
@@ -60,6 +61,9 @@ function [retval] = patternsearch(x0,alpha0,objectivefunction,basis,order,tauplu
   global Unsucc; % Matrix to keep successful evaluations
   global tabu; % Not to evaluate the last successful move
   global successfulDirection;
+  global RmatrixFunction;
+  
+  RmatrixFunction = zeros (3, 0);
   
   if nargin == 0
     x0 = (10.*rand(2,1))-5; alpha0=0.2; objectivefunction='sphere';
@@ -100,7 +104,7 @@ function [retval] = patternsearch(x0,alpha0,objectivefunction,basis,order,tauplu
   Unsucc =  vertcat(xk,fxk);
   
   %printf("Iter %d fx %f Vector %s \n",k,fxk,mat2str(transpose(xk)));
-  printf("Iter %d fx %f\n",k,fxk);
+  %printf("Iter %d fx %f\n",k,fxk);
   
   % -- Prepearing for pollstep
   ord = order;
@@ -120,10 +124,12 @@ function [retval] = patternsearch(x0,alpha0,objectivefunction,basis,order,tauplu
   
   
   % --------------------  Main loop -------------------------------------
-
-  while (k < 20000) && (fxk > 0.001)
+  start = time();
+  while (k < 50000) && (fxk > 0.01)
     pollstep(ord,taup,taum);
   endwhile
+  stop = time();
+  printf("Time %f \n",(stop-start));
   % --------------------  End main loop ---------------------------------
   
   % Plotting for 2D functions
@@ -132,7 +138,7 @@ function [retval] = patternsearch(x0,alpha0,objectivefunction,basis,order,tauplu
   endif
   
   retval = numberevaluations;
-  clear strfitnessfct N alphak xk k numberevaluations ksuccessful B fxk Succ Unsucc successfulDirection tabu;  
+  clear strfitnessfct N alphak xk k numberevaluations ksuccessful B fxk Succ Unsucc successfulDirection tabu RmatrixFunction;  
 endfunction
 
 
@@ -195,7 +201,7 @@ function pollstep(order,tauplus,tauminus)
   k = k + 1;
   
   %printf("Iter %d fx %f Vector %s \n",k,fxk,mat2str(transpose(xk)));
-  printf("Iter %d fx %f\n",k,fxk);
+  %printf("Iter %d fx %f\n",k,fxk);
   
 end
 
@@ -219,8 +225,30 @@ function f=ellipsoid(x)
   for i = 1:dim
     f = f + (50*(i^2*x(i))^2);
   endfor
-  
 end
+
+% --------------------  Ellipsoid Rotated pi/7 ---------------------  
+% --- Rotation is done in all the planes
+function f=rotatedEllipsoid(x)
+  global RmatrixFunction;
+  dim = size(x,1);
+  if dim < 1 error('dimension must be greater than zero'); end
+
+  % Rotating x  
+  if isempty(RmatrixFunction)
+    nrot = nchoosek (dim, 2); % Number of rotations cominations dim over 2
+    thetas = pi/7 .* ones(nrot);
+    RmatrixFunction = rotateAngles(dim,thetas);
+  endif
+  xrot = RmatrixFunction * x;
+  
+  f = 0;
+  for i = 1:dim
+    f = f + (50*(i^2*xrot(i))^2);
+  endfor
+end
+
+
 
 % --------------------  Sphere  ---------------------------------  
 function f=sphere(x)
@@ -236,20 +264,18 @@ end
 
 % --------------------  Bentcigar shifted and rotated  -----------  
 function f=bentcigarshiftedrotated(x)
-  if size(x,1) < 2 error('dimension must be greater than one'); end
-  
-  % Rotation
-  % Defining the basis of rotation
-  %eye(size(x,1);
-  %v(:,[1:size(v,1)-2]) = [];
-  v1 = zeros(size(x,1),1);
-  v1(1,1) = 1;
-  v2 = zeros(size(x,1),1);
-  v = horzcat (v1,v2);
-  % Obtaining the rotation matrix
-  R = rotmnd(v,-pi/3);
-  % Rotating x
-  xrot = R * x;
+  global RmatrixFunction;
+  dim = size(x,1);
+  if dim < 2 error('dimension must be greater than one'); end
+
+  % Rotating x  
+  if isempty(RmatrixFunction)
+    nrot = nchoosek (dim, 2); % Number of rotations cominations dim over 2
+    thetas = pi/7 .* ones(nrot);
+    RmatrixFunction = rotateAngles(dim,thetas);
+  endif
+  xrot = RmatrixFunction * x;
+
   % Shifting the rotated x
   xshift = xrot .+ 10;
   
@@ -259,7 +285,7 @@ end
 
 % ---------------------------------------------------------------  
 % --------------------  Auxiliary functions  --------------------  
-% -------------200--------------------------------------------------  
+% ---------------------------------------------------------------  
 
 % --------------------  Simplex --------------------------------  
 function V=simplex(N)
@@ -285,14 +311,80 @@ function V=simplex(N)
       % v can be any of V(:,nc) V(:,nc+1) ... V(:,end)
       for nc1=nc+1:N
         V(nc,nc1)=-(sum(V(1:nc-1,nc).*V(1:nc-1,nc1))+1/(N-1))/V(nc,nc);
-      end
-  end
+      endfor
+  endfor
 end
 % to check:
 % see V'*V - symmetrical with 1 at diagonal and -1/(N-1) in rest
 % mean(V,2) vector close to zero vector
 
+% ---------------------------------------------------------------  
+% --------------------  Rotations  ------------------------------  
+% --------------------------------------------------------------- 
 
+% Implementation of the Aguilera-Perez Algorithm.
+% Aguilera, Antonio, and Ricardo Pérez-Aguila. "General n-dimensional rotations." (2004).
+% Found here : https://stackoverflow.com/questions/50337642/how-to-calculate-a-rotation-matrix-in-n-dimensions-given-the-point-to-rotate-an
+% https://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.4.8662
+% Aguilera, Antonio; Peréz-Aguila, Ricardo; General n-dimensional rotations
+% WSCG '2004: Short Communications: the 12-th International Conference in Central Europe on Computer Graphics, Visualization and Computer Vision 2004, 2.-6. February 2004 Plzeň, p. 1-8.
+function M = rotmnd(v,theta)
+    n = size(v,1);
+    M = eye(n);
+    for c = 1:(n-2)
+        for r = n:-1:(c+1)
+            t = atan2(v(r,c),v(r-1,c));
+            R = eye(n);
+            R([r r-1],[r r-1]) = [cos(t) -sin(t); sin(t) cos(t)];
+            v = R*v;
+            M = R*M;
+        endfor
+    endfor
+    R = eye(n);
+    R([n-1 n],[n-1 n]) = [cos(theta) -sin(theta); sin(theta) cos(theta)];
+    M = M\R*M;
+end
+
+% This function returns all the possible rotations planes
+% for a given dimension - combinatorics of dim over 2
+% If you want to select the n-th basis do: v(:,:,n)
+function v = rotationBasis(dim)
+  if dim == 2
+    v = [0;0];
+    return;
+  endif
+  
+  nrot = nchoosek (dim, 2); % Number of posible rotations planes
+  v = zeros(dim,dim-2,nrot);
+  diag = eye(dim-2);
+
+  rot = 1;
+  for i = 1 : dim - 1
+    for j = i + 1 : dim
+      %Rotation 1,2,3,....
+      count = 1;
+      for h = 1:dim
+        if h != i && h != j
+          v(h,:,rot) = diag(count,:);
+          count++;
+        endif
+      endfor
+      rot++;
+    endfor
+  endfor
+end
+
+% Rotate in a dim space - 2D, 3D,... - all the angles in thethas
+% Thethas is a vector for all the possible rotation planes in dim space
+% The length of thetas is the combinatorics of dim over 2
+function R = rotateAngles(dim,thetas)
+  v = rotationBasis(dim);
+  R = eye(dim);
+  nrot = nchoosek (dim, 2);
+  for i = 1: nrot
+    R = R * rotmnd(v(:,:,i),thetas(i));
+  endfor
+end
 % --------------------  Plotting  -------------------------------  
 function plot3D()
   global strfitnessfct;
