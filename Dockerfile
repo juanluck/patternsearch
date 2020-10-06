@@ -9,12 +9,13 @@ RUN apt-get update && \
   apt-get clean all
 
 #RUN mkdir /Result
+RUN rm -rf home/* 
 
-ADD . /
+ADD . /home
 #COPY ./main.sce /main.sce
 #COPY ./entrypoint.sh /entrypoint.sh
 
-WORKDIR /
+WORKDIR /home/octave
 
-ENTRYPOINT ["/entrypoint.sh"]
-#ENTRYPOINT ["/bin/bash"]
+ENTRYPOINT ["/home/entrypoint.sh"]
+#ENTRYPOINT [ "/bin/bash", "-l", "-c" ]

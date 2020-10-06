@@ -124,17 +124,18 @@ function [retval] = patternsearch(x0,alpha0,objectivefunction,basis,order,tauplu
   
   
   % --------------------  Main loop -------------------------------------
+  %printf("Time,iterations,evaluations,fitness \n");
   start = time();
   while (k < 50000) && (fxk > 0.01)
     pollstep(ord,taup,taum);
   endwhile
   stop = time();
-  printf("Time %f \n",(stop-start));
+  printf("%f,%d,%d,%f\n",(stop-start),k,numberevaluations,fxk);
   % --------------------  End main loop ---------------------------------
   
   % Plotting for 2D functions
   if (N == 2)
-    plot3D();
+    %plot3D();
   endif
   
   retval = numberevaluations;

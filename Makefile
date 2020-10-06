@@ -1,7 +1,7 @@
-all: build clean prepare start
+all: build clean prepare startSeveralSameSimu
 
 build:
-	docker build -t scilab .
+	docker build -t octave .
 
 clean:
 	docker stop $(shell docker ps -aq) || true && docker rm $(shell docker ps -aq) || true
@@ -13,8 +13,8 @@ prepare:
 	mkdir Results
 	mkdir outputs
 
-startParamEstimation:
-	python3 execDockers.py &> output_python
+#startParamEstimation:
+#	python3 execDockers.py &> output_python
 
 startSeveralSameSimu:
 	python3 execSeveralRuns.py &> output_python
