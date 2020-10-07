@@ -67,7 +67,6 @@ for nbSimStarted in range(NoSIM):
 		command[0] += " >> " + outputFile + " 2>/dev/null"
 
 		Popen(command, shell = True)
-		nbSimStarted += 1
 		time.sleep(5) # wait 30 sec to make sure the container is really started
 
 		# Loop if the current number of running containers is greater or equal than the number of available cpus
