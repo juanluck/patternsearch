@@ -154,12 +154,7 @@ endfunction
 
 function [RotationMatrices] = rotations (Basis,pos,theta)
   dim = size(Basis,1);
-  
   % Building all the rotated Basis V
-  if dim == 2
-    v = [0;0];
-    return;
-  endif
   
   % Prepearing basis v to span n-2 subspace
   v = zeros(dim,dim-2,dim-1);
@@ -180,6 +175,7 @@ function [RotationMatrices] = rotations (Basis,pos,theta)
     endfor
   endfor
   
+  
   % Creating 2 x n-1 rotation matrices
   RotationMatrices = zeros (dim,dim,2*dimMinus1);
   for i = 1:2:(2*dimMinus1)
@@ -188,6 +184,12 @@ function [RotationMatrices] = rotations (Basis,pos,theta)
     RotationMatrices(:,:,i) =  rotmnd(v(:,:,fix((i+1)/2)),theta);
     RotationMatrices(:,:,i+1) =  rotmnd(v(:,:,fix((i+1)/2)),-theta);
   endfor
+  
+  if dim == 2
+    v = [0;0];
+    RotationMatrices(:,:,1) =  rotmnd(v,theta);
+    RotationMatrices(:,:,2) =  rotmnd(v,-theta);
+  endif
 endfunction
 
 % --------------------  Poll step --------------------------------  
