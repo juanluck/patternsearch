@@ -67,12 +67,12 @@ function [retval] = blindarcher(x0,alpha0,objectivefunction,basis,order,tauplus,
   pos = 2;
   theta = pi/4;
   rotations(Basis,pos,theta);
-  return;
+  %return;
   
   RmatrixFunction = zeros (3, 0);
   
   if nargin == 0
-    x0 = (10.*rand(2,1))-5; alpha0=0.2; objectivefunction='sphere';
+    x0 = (10.*rand(2,1))-5; alpha0=0.2; objectivefunction='rotatedEllipsoid';
     basis = 'standard'; order = 'same'; tauplus = 1; tauminus = 0.5;
   elseif nargin < 2
     alpha0=0.2; objectivefunction='sphere';
@@ -152,8 +152,8 @@ endfunction
 % return 2 x (n-1) rotation matrices of the Basis around the vector B(:,pos)
 % with angle theta
 
-function RotationMatrices = rotations (Basis,pos,theta)
-  dim = size(Basis,1)
+function [RotationMatrices] = rotations (Basis,pos,theta)
+  dim = size(Basis,1);
   
   % Building all the rotated Basis V
   if dim == 2
@@ -165,11 +165,10 @@ function RotationMatrices = rotations (Basis,pos,theta)
   v = zeros(dim,dim-2,dim-1);
   
   % Prepearint basis without the leading vector
-  Bp = horzcat(Basis(:,1:(pos-1)),Basis(:,(pos+1):end))
+  Bp = horzcat(Basis(:,1:(pos-1)),Basis(:,(pos+1):end));
 
   % Indices of combinations without repetitions
-  index = nchoosek(1:(dim-1),dim-2)
-  
+  index = nchoosek(1:(dim-1),dim-2);
   dimMinus1 = size(index,1);
   dimMinus2 = size(index,2);
   
@@ -181,8 +180,7 @@ function RotationMatrices = rotations (Basis,pos,theta)
     endfor
   endfor
   
-  % Creating n-1 rotation matrices
-  
+  % Creating 2 x n-1 rotation matrices
   RotationMatrices = zeros (dim,dim,2*dimMinus1);
   for i = 1:2:(2*dimMinus1)
   %for i = 1:dimMinus1
@@ -190,8 +188,6 @@ function RotationMatrices = rotations (Basis,pos,theta)
     RotationMatrices(:,:,i) =  rotmnd(v(:,:,fix((i+1)/2)),theta);
     RotationMatrices(:,:,i+1) =  rotmnd(v(:,:,fix((i+1)/2)),-theta);
   endfor
-  
-  RotationMatrices
 endfunction
 
 % --------------------  Poll step --------------------------------  
@@ -222,12 +218,21 @@ function pollstep(order,tauplus,tauminus)
 
   % Polling step procedure
   ksuccessful = 0;
-
+  best_pos_k = 0;
+  f_best_k = realmax;
+  
   for i = orderOfEvalution
     xpp = xk + alphak .* B(:,i);
+    
     if ! isequal(xpp, tabu)
       newfval = feval(strfitnessfct, xpp);
       numberevaluations ++;
+      
+      if (newfval < f_best_k)
+        f_best_k = newfval;
+        best_pos_k = i;
+      endif
+      
       if ( newfval < fxk )
         ksuccessful = 1;
         successfulDirection = i;
@@ -247,6 +252,7 @@ function pollstep(order,tauplus,tauminus)
     alphak = alphak * tauplus;
    else
     alphak = alphak * tauminus;
+    rotationstep(best_pos_k,f_best_k);
   endif
   
   % Increase iterations
@@ -254,6 +260,44 @@ function pollstep(order,tauplus,tauminus)
   
   %printf("Iter %d fx %f Vector %s \n",k,fxk,mat2str(transpose(xk)));
   %printf("Iter %d fx %f\n",k,fxk);
+  
+end
+
+% --------------------  Rotation step --------------------------------  
+function rotationstep(best_pos_k,f_best_k)
+  global B;
+  global xk;
+  global alphak;
+  global numberevaluations;
+  global strfitnessfct;
+  
+  % Basis = first half of B
+  dim = size(B,1);
+  Basis = B(:,1:dim);
+  pos = best_pos_k;
+  if best_pos_k > dim
+    pos = best_pos_k - dim;
+  end
+  
+  % Obtain all the rotation matrices
+  RotationMatrices = rotations(Basis,pos,pi/4);
+  
+  % Compute the best rotation matrix
+  f_best = f_best_k;
+  bestBasis = B;
+  for i = 1:(dim-1)
+    auxBasis = RotationMatrices(:,:,i) * B; 
+    f_x = xk + alphak .* auxBasis(:,best_pos_k);
+    newfval = feval(strfitnessfct, f_x);
+    numberevaluations ++;
+    
+    if ( newfval < f_best )
+      f_best = newfval;
+      bestBasis = auxBasis;
+    end
+  end
+  
+  B = auxBasis;
   
 end
 
