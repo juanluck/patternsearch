@@ -9,13 +9,23 @@ from datetime import timedelta
 
 # global variables
 octaveScriptName = "patternsearch.sh"
-x0v = [2,3]
-alpha0v = [0.1]
-objectivefunctionv = ["sphere","ellipsoid"]
-basisv = ["standard"]
+x0v = [2]
+alpha0v = [0.01,0.5]
+objectivefunctionv = ["sphere","ellipsoid","rotatedEllipsoid","rosenbrock"]
+basisv = ["standard","simplex"]
+orderv = ["same","successful","random"]
+tauplusv = [1,2,4]
+tauminusv = [0.25,0.5,0.75]
+
+
+x0v = [5]
+alpha0v = [0.5]
+objectivefunctionv = ["rosenbrock"]
+basisv = ["simplex"]
 orderv = ["same"]
 tauplusv = [1]
 tauminusv = [0.5]
+
 
 
 def nbContainers():
@@ -50,7 +60,7 @@ nbCpus = multiprocessing.cpu_count()
 # The date of the last backup done
 lastBackup = datetime.now()
 
-NoSIM = 2
+NoSIM = 5
 run("mkdir Results", shell = True)
 
 for nbSimStarted in range(NoSIM):
@@ -70,9 +80,10 @@ for nbSimStarted in range(NoSIM):
 		time.sleep(5) # wait 30 sec to make sure the container is really started
 
 		# Loop if the current number of running containers is greater or equal than the number of available cpus
-		while nbCpus <= nbContainers():
+		# nbCpus -1 to leave one cpu free
+		while nbCpus-1 <= nbContainers():
 			# Sleep a bit: don't need to be awaken all the time
-			time.sleep(350)
+			time.sleep(20)
 
 while nbContainers() > 0:
 	# We started all the containers, but we still have to wait until their end

@@ -5,8 +5,9 @@ function xmin=purecmaes   % (mu/mu_w, lambda)-CMA-ES
   N = 2;               % number of objective variables/problem dimension
   xmean = rand(N,1);    % objective variables initial point
   sigma = 0.3;          % coordinate wise standard deviation (step size)
-  stopfitness = 1e-10;  % stop if fitness < stopfitness (minimization)
+  stopfitness = 1e-2;  % stop if fitness < stopfitness (minimization)
   stopeval = 1e3*N^2;   % stop after stopeval number of function evaluations
+  numberofevaluations = 0;
   
   % Strategy parameter setting: Selection  
   lambda = 4+floor(3*log(N));  % population size, offspring number
@@ -43,8 +44,9 @@ function xmin=purecmaes   % (mu/mu_w, lambda)-CMA-ES
           arfitness(k) = feval(strfitnessfct, arx(:,k)); % objective function call
           counteval = counteval+1;
           g=sprintf('%d ', arx(:,k));
-          printf("Generation %d Individual %s\n", generation,g);
+          %printf("Generation %d Evaluations %d Individual %s\n", generation,counteval,g);
       end
+      
       
       generation = generation+1;
       
@@ -79,7 +81,8 @@ function xmin=purecmaes   % (mu/mu_w, lambda)-CMA-ES
           D = sqrt(diag(D));        % D is a vector of standard deviations now
           invsqrtC = B * diag(D.^-1) * B';
       end
-    
+      
+      printf("Generation %d Evaluations %d Fitness %f\n", generation,counteval,arfitness(1));
       % Break, if fitness is good enough or condition exceeds 1e14, better termination methods are advisable 
       if arfitness(1) <= stopfitness || max(D) > 1e7 * min(D)
           break;

@@ -42,7 +42,7 @@
 % tauplus is the ratio for augmenting the step when successful
 % tauminus is the ratio for decreasing the step after failure
 
-function [retval] = patternsearch(x0,alpha0,objectivefunction,basis,order,tauplus,tauminus)
+function [retval] = blindarcher(x0,alpha0,objectivefunction,basis,order,tauplus,tauminus)
   
   % --------------------  Initialization --------------------------------  
   % User defined input parameters (need to be edited)
@@ -62,6 +62,12 @@ function [retval] = patternsearch(x0,alpha0,objectivefunction,basis,order,tauplu
   global tabu; % Not to evaluate the last successful move
   global successfulDirection;
   global RmatrixFunction;
+  
+  Basis = eye(3);
+  pos = 2;
+  theta = pi/4;
+  rotations(Basis,pos,theta);
+  return;
   
   RmatrixFunction = zeros (3, 0);
   
@@ -142,6 +148,51 @@ function [retval] = patternsearch(x0,alpha0,objectivefunction,basis,order,tauplu
   clear strfitnessfct N alphak xk k numberevaluations ksuccessful B fxk Succ Unsucc successfulDirection tabu RmatrixFunction;  
 endfunction
 
+% --------------------  Rotations --------------------------------  
+% return 2 x (n-1) rotation matrices of the Basis around the vector B(:,pos)
+% with angle theta
+
+function RotationMatrices = rotations (Basis,pos,theta)
+  dim = size(Basis,1)
+  
+  % Building all the rotated Basis V
+  if dim == 2
+    v = [0;0];
+    return;
+  endif
+  
+  % Prepearing basis v to span n-2 subspace
+  v = zeros(dim,dim-2,dim-1);
+  
+  % Prepearint basis without the leading vector
+  Bp = horzcat(Basis(:,1:(pos-1)),Basis(:,(pos+1):end))
+
+  % Indices of combinations without repetitions
+  index = nchoosek(1:(dim-1),dim-2)
+  
+  dimMinus1 = size(index,1);
+  dimMinus2 = size(index,2);
+  
+  % Creating the basis v from the basis Bp
+  for i = 1: dimMinus1
+    for j = 1: dimMinus2
+      %index(i,j)
+      v(:,j,i) = Bp(:,index(i,j));
+    endfor
+  endfor
+  
+  % Creating n-1 rotation matrices
+  
+  RotationMatrices = zeros (dim,dim,2*dimMinus1);
+  for i = 1:2:(2*dimMinus1)
+  %for i = 1:dimMinus1
+    %RotationMatrices(:,:,i) =  rotmnd(v(:,:,i),theta);
+    RotationMatrices(:,:,i) =  rotmnd(v(:,:,fix((i+1)/2)),theta);
+    RotationMatrices(:,:,i+1) =  rotmnd(v(:,:,fix((i+1)/2)),-theta);
+  endfor
+  
+  RotationMatrices
+endfunction
 
 % --------------------  Poll step --------------------------------  
 function pollstep(order,tauplus,tauminus)
