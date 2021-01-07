@@ -108,8 +108,10 @@ function [retval] = blindarcher(x0,alpha0,objectivefunction,basis,order,tauplus,
   fxk = feval(strfitnessfct, xk);
   numberevaluations = 1;
   tabu = xk;
-  Succ = vertcat(xk,fxk);
-  Unsucc =  vertcat(xk,fxk);
+  if (N == 2)
+    Succ = vertcat(xk,fxk);
+    Unsucc =  vertcat(xk,fxk);
+  endif
   
   %printf("Iter %d fx %f Vector %s \n",k,fxk,mat2str(transpose(xk)));
   %printf("Iter %d fx %f\n",k,fxk);
@@ -138,7 +140,7 @@ function [retval] = blindarcher(x0,alpha0,objectivefunction,basis,order,tauplus,
   %printf("Time,iterations,evaluations,fitness \n");
   start = time();
   leadingVectorBasis();
-  while (k < 10000) && (fxk > 0.01)
+  while (k < 100000) && (fxk > 0.01)
     if ( pollstep(ord,taup,taum) == 0)
       %leadingVectorBasis();
     endif
@@ -167,6 +169,7 @@ function leadingVectorBasis()
   global fxk;
   global Succ;
   global thetak;
+  global N;
   
   leadingDirection = 0;
   xk1 = xk;
@@ -178,7 +181,9 @@ function leadingVectorBasis()
     newfval = feval(strfitnessfct, xpp);
     numberevaluations ++;
     
-    Succ = horzcat(Succ,vertcat(xpp,newfval));
+    if (N == 2)
+      Succ = horzcat(Succ,vertcat(xpp,newfval));
+    endif
     
     if (newfval < fxk1)
         %disp("-------");
@@ -197,11 +202,17 @@ function leadingVectorBasis()
 %  endif
   
   [x,fx] = rotationstep(leadingDirection,xk1,fxk1,pi/8);
-  Succ = horzcat(Succ,vertcat(x,fx));
+  if (N == 2)
+    Succ = horzcat(Succ,vertcat(x,fx));
+  endif
   [x,fx] = rotationstep(leadingDirection,x,fx,pi/16);
-  Succ = horzcat(Succ,vertcat(x,fx));
+  if (N == 2)
+    Succ = horzcat(Succ,vertcat(x,fx));
+  endif
   [x,fx] = rotationstep(leadingDirection,x,fx,pi/32);
-  Succ = horzcat(Succ,vertcat(x,fx));
+  if (N == 2)
+    Succ = horzcat(Succ,vertcat(x,fx));
+  endif
   
  
 endfunction
@@ -256,10 +267,14 @@ function ksuccessful = pollstep(order,tauplus,tauminus)
       if ( newfval < fxk )
         ksuccessful = 1;
         successfulDirection = i;
-        Succ = horzcat(Succ,vertcat(xpp,newfval));
+        if (N == 2)
+          Succ = horzcat(Succ,vertcat(xpp,newfval));
+        endif
         break;
       else
-        Unsucc = horzcat(Unsucc,vertcat(xpp,newfval));
+        if (N == 2)
+          Unsucc = horzcat(Unsucc,vertcat(xpp,newfval));
+        endif
       endif 
     endif
   end
