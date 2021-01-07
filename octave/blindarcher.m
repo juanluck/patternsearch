@@ -168,9 +168,10 @@ function leadingVectorBasis()
   global Succ;
   global thetak;
   
-  leadingPos = 0;
-  fBest = realmax;
-  best = xk;
+  leadingDirection = 0;
+  xk1 = xk;
+  fxk1 = realmax;
+  
   
   for i = 1:columns(B)
     xpp = xk + alphak .* B(:,i);
@@ -179,32 +180,30 @@ function leadingVectorBasis()
     
     Succ = horzcat(Succ,vertcat(xpp,newfval));
     
-    if (newfval < fBest)
+    if (newfval < fxk1)
         %disp("-------");
-        fBest = newfval;
-        leadingPos = i;
-        best = xpp;
+        leadingDirection = i;
+        xk1 = xpp;
+        fxk1 = newfval;
         %disp("-------");
     endif
   endfor
   
-  successfulDirection = leadingPos;
+  successfulDirection = leadingDirection;
   
 %  if ( fBest < fxk )
 %    xk = best;
 %    fxk = fBest;
 %  endif
   
-  rotationstep(leadingPos,fBest,pi/8);
-  rotationstep(leadingPos,fBest,pi/16);
-  [x, f_best] = rotationstep(leadingPos,fBest,pi/32);
+  [x,fx] = rotationstep(leadingDirection,xk1,fxk1,pi/8);
+  Succ = horzcat(Succ,vertcat(x,fx));
+  [x,fx] = rotationstep(leadingDirection,x,fx,pi/16);
+  Succ = horzcat(Succ,vertcat(x,fx));
+  [x,fx] = rotationstep(leadingDirection,x,fx,pi/32);
+  Succ = horzcat(Succ,vertcat(x,fx));
+  
  
-  if (f_best < fxk)
-    fkx = f_best;
-    xk = x;
-  endif
- 
-    
 endfunction
 
 % --------------------  Poll step --------------------------------  
@@ -236,8 +235,9 @@ function ksuccessful = pollstep(order,tauplus,tauminus)
 
   % Polling step procedure
   ksuccessful = 0;
-  best_pos_k = 0;
-  f_best_k = realmax;
+  directionk1 = 0;
+  xk1 = xk;
+  fxk1 = realmax;
   
   for i = orderOfEvalution
   %for i = successfulDirection
@@ -247,9 +247,10 @@ function ksuccessful = pollstep(order,tauplus,tauminus)
       newfval = feval(strfitnessfct, xpp);
       numberevaluations ++;
       
-      if (newfval < f_best_k)
-        f_best_k = newfval;
-        best_pos_k = i;
+      if (newfval < fxk1)
+        directionk1 = i;
+        xk1 = xpp;
+        fxk1 = newfval;
       endif
       
       if ( newfval < fxk )
@@ -270,14 +271,14 @@ function ksuccessful = pollstep(order,tauplus,tauminus)
     fxk = newfval;
     alphak = alphak * tauplus;
     thetak = pi/8;
+    if (successfulDirection != orderOfEvalution(1))
+      %[x, fx] = rotationstep(directionk1,xk1,fxk1,thetak);
+    endif
+
    else
     alphak = alphak * tauminus;
-    [x, f_x] = rotationstep(best_pos_k,f_best_k,thetak);
+    [x, fx] = rotationstep(directionk1,xk1,fxk1,thetak);
     thetak = thetak/2;
-    if (thetak < pi/8)
-      disp ("Inferior");
-      thetak
-    endif
   endif
   
   % Increase iterations
@@ -289,7 +290,7 @@ function ksuccessful = pollstep(order,tauplus,tauminus)
 endfunction
 
 % --------------------  Rotation step --------------------------------  
-function [f_x, f_best] = rotationstep(best_pos_k,f_best_k,theta)
+function [bestx, fxbest] = rotationstep(directionk1,xk1,fxk1,theta)
   global B;
   global xk;
   global fxk;
@@ -300,32 +301,32 @@ function [f_x, f_best] = rotationstep(best_pos_k,f_best_k,theta)
   % Basis = first half of B
   dim = size(B,1);
   Basis = B(:,1:dim);
-  pos = best_pos_k;
-  if best_pos_k > dim
-    pos = best_pos_k - dim;
+  pos = directionk1;
+  if directionk1 > dim
+    pos = directionk1 - dim;
   end
   
   % Obtain all the rotation matrices
   RotationMatrices = rotations(Basis,pos,theta);
   
   % Compute the best rotation matrix
-  f_best = f_best_k;
   bestBasis = B;
-  best = xk;
+  bestx = xk1;
+  fxbest = fxk1;
   for i = 1: 2*(dim-1)
     auxBasis = RotationMatrices(:,:,i) * B;
-    f_x = xk + alphak .* auxBasis(:,best_pos_k);
-    newfval = feval(strfitnessfct, f_x);
+    x = xk + alphak .* auxBasis(:,directionk1);
+    newfval = feval(strfitnessfct, x);
     numberevaluations ++;
     
-    if ( newfval < f_best )
-      f_best = newfval;
+    if ( newfval < fxbest )
       bestBasis = auxBasis;
-      best = f_x;
+      bestx = x;
+      fxbest = newfval;
     end
   end
   
-  B = auxBasis;
+  B = bestBasis;
   
   %if (f_best < fxk)
   %  xk = f_x;
