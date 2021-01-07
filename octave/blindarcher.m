@@ -62,6 +62,7 @@ function [retval] = blindarcher(x0,alpha0,objectivefunction,basis,order,tauplus,
   global tabu; % Not to evaluate the last successful move
   global successfulDirection;
   global RmatrixFunction;
+  global thetak;
   
   % Testing rotations
   %Basis = eye(3);
@@ -127,6 +128,9 @@ function [retval] = blindarcher(x0,alpha0,objectivefunction,basis,order,tauplus,
   successfulDirection = 1; 
 
   
+  % Rotation
+  thetak = pi/8;
+  
   % --------------------  End Initialization ---------------------------- 
   
   
@@ -134,8 +138,10 @@ function [retval] = blindarcher(x0,alpha0,objectivefunction,basis,order,tauplus,
   %printf("Time,iterations,evaluations,fitness \n");
   start = time();
   leadingVectorBasis();
-  while (k < 1000) && (fxk > 0.01)
-    pollstep(ord,taup,taum);
+  while (k < 10000) && (fxk > 0.01)
+    if ( pollstep(ord,taup,taum) == 0)
+      %leadingVectorBasis();
+    endif
   endwhile
   stop = time();
   printf("%f,%d,%d,%f\n",(stop-start),k,numberevaluations,fxk);
@@ -160,6 +166,7 @@ function leadingVectorBasis()
   global numberevaluations;
   global fxk;
   global Succ;
+  global thetak;
   
   leadingPos = 0;
   fBest = realmax;
@@ -190,12 +197,18 @@ function leadingVectorBasis()
   
   rotationstep(leadingPos,fBest,pi/8);
   rotationstep(leadingPos,fBest,pi/16);
-  rotationstep(leadingPos,fBest,pi/32);
+  [x, f_best] = rotationstep(leadingPos,fBest,pi/32);
+ 
+  if (f_best < fxk)
+    fkx = f_best;
+    xk = x;
+  endif
+ 
     
 endfunction
 
 % --------------------  Poll step --------------------------------  
-function pollstep(order,tauplus,tauminus)
+function ksuccessful = pollstep(order,tauplus,tauminus)
   global strfitnessfct;  % name of objective/fitness function
   global N;               % number of objective variables/problem dimension
   global alphak;
@@ -209,6 +222,7 @@ function pollstep(order,tauplus,tauminus)
   global Unsucc; % Matrix to keep successful evaluations
   global tabu;
   global successfulDirection;
+  global thetak;
   
   
   % Generating order of evaluation
@@ -226,6 +240,7 @@ function pollstep(order,tauplus,tauminus)
   f_best_k = realmax;
   
   for i = orderOfEvalution
+  %for i = successfulDirection
     xpp = xk + alphak .* B(:,i);
     
     if ! isequal(xpp, tabu)
@@ -254,9 +269,15 @@ function pollstep(order,tauplus,tauminus)
     xk = xpp;
     fxk = newfval;
     alphak = alphak * tauplus;
+    thetak = pi/8;
    else
     alphak = alphak * tauminus;
-    %rotationstep(best_pos_k,f_best_k,pi/8);
+    [x, f_x] = rotationstep(best_pos_k,f_best_k,thetak);
+    thetak = thetak/2;
+    if (thetak < pi/8)
+      disp ("Inferior");
+      thetak
+    endif
   endif
   
   % Increase iterations
@@ -268,7 +289,7 @@ function pollstep(order,tauplus,tauminus)
 endfunction
 
 % --------------------  Rotation step --------------------------------  
-function rotationstep(best_pos_k,f_best_k,theta)
+function [f_x, f_best] = rotationstep(best_pos_k,f_best_k,theta)
   global B;
   global xk;
   global fxk;
@@ -306,10 +327,10 @@ function rotationstep(best_pos_k,f_best_k,theta)
   
   B = auxBasis;
   
-  if (f_best < fxk)
-    xk = f_x;
-    fxk = f_best;
-  endif
+  %if (f_best < fxk)
+  %  xk = f_x;
+  %  fxk = f_best;
+  %endif
   
 endfunction
 
