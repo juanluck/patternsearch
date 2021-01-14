@@ -126,7 +126,7 @@ function [retval] = patternsearch(x0,alpha0,objectivefunction,basis,order,tauplu
   % --------------------  Main loop -------------------------------------
   %printf("Time,iterations,evaluations,fitness \n");
   start = time();
-  while (k < 100000) && (fxk > 0.01)
+  while (k < 1000) && (fxk > 0.01)
     pollstep(ord,taup,taum);
   endwhile
   stop = time();

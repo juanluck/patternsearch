@@ -51,6 +51,7 @@ function [retval] = blindarcher(x0,alpha0,objectivefunction,basis,order,tauplus,
   global strfitnessfct;  % name of objective/fitness function
   global N;               % number of objective variables/problem dimension
   global alphak;
+  global betak;
   global xk;
   global k;                         %Iteration number
   global numberevaluations;
@@ -75,17 +76,17 @@ function [retval] = blindarcher(x0,alpha0,objectivefunction,basis,order,tauplus,
   
   if nargin == 0
     x0 = (10.*rand(2,1))-5; alpha0=0.2; objectivefunction='rotatedEllipsoid';
-    basis = 'standard'; order = 'successful'; tauplus = 1; tauminus = 0.5;
+    basis = 'simplex'; order = 'successful'; tauplus = 1; tauminus = 0.5;
   elseif nargin < 2
     alpha0=0.2; objectivefunction='sphere';
-    basis = 'standard'; order = 'successful'; tauplus = 1; tauminus = 0.5;
+    basis = 'simplex'; order = 'successful'; tauplus = 1; tauminus = 0.5;
   elseif nargin < 3
     objectivefunction='sphere';
-    basis = 'standard'; order = 'successful'; tauplus = 1; tauminus = 0.5;
+    basis = 'simplex'; order = 'successful'; tauplus = 1; tauminus = 0.5;
   elseif nargin < 4
-    basis = 'standard'; order = 'successful'; tauplus = 1; tauminus = 0.5;
+    basis = 'simplex'; order = 'successful'; tauplus = 1; tauminus = 0.5;
   elseif nargin < 5
-    order = 'successful'; tauplus = 1; tauminus = 0.5;
+    order = 'simplex'; tauplus = 1; tauminus = 0.5;
   elseif nargin < 6
     tauplus = 1; tauminus = 0.5;
   elseif nargin < 7
@@ -96,6 +97,7 @@ function [retval] = blindarcher(x0,alpha0,objectivefunction,basis,order,tauplus,
   strfitnessfct = objectivefunction;
   N = size(x0,1);
   alphak = alpha0;
+  betak = alpha0;
   xk = x0;
   k = 0;
   ksuccessful = 0;
@@ -139,12 +141,19 @@ function [retval] = blindarcher(x0,alpha0,objectivefunction,basis,order,tauplus,
   % --------------------  Main loop -------------------------------------
   %printf("Time,iterations,evaluations,fitness \n");
   start = time();
-  leadingVectorBasis();
-  while (k < 100000) && (fxk > 0.01)
-    if ( pollstep(ord,taup,taum) == 0)
-      %leadingVectorBasis();
+  %leadingVectorBasis();
+  gradientOfSimplex();
+  while (k < 1000) && (fxk > 0.01)
+    if ( !gradientstep() )
+      %alphak = alphak/2;
+      %betak = alphak;
+      %gradientOfSimplex();
+      while (! pollstep(ord,taup,taum))
+      endwhile
     endif
   endwhile
+
+  
   stop = time();
   printf("%f,%d,%d,%f\n",(stop-start),k,numberevaluations,fxk);
   % --------------------  End main loop ---------------------------------
@@ -158,7 +167,68 @@ function [retval] = blindarcher(x0,alpha0,objectivefunction,basis,order,tauplus,
   clear strfitnessfct N alphak xk k numberevaluations ksuccessful B fxk Succ Unsucc successfulDirection tabu RmatrixFunction;  
 endfunction
 
-% --------------------  Poll step --------------------------------  
+% --------------------  Gradient of Simplex --------------------------------  
+function gradientOfSimplex()
+  global B;
+  global xk;
+  global alphak;
+  global strfitnessfct;
+  global successfulDirection;
+  global numberevaluations;
+  global fxk;
+  global Succ;
+  global thetak;
+  global N;
+    
+  % building/evaluating a simplex
+  simplex = zeros(N,N+1);
+  fysimplex = zeros(N+1,1);
+  fxk1 = realmax;
+  
+  for i = 1:columns(B)
+    simplex(:,i) = xk + alphak .* B(:,i);
+    fysimplex(i) = feval(strfitnessfct, simplex(:,i));
+    numberevaluations ++;
+    
+    if (fysimplex(i) < fxk1)
+        successfulDirection = i;
+        fxk1 = fysimplex(i);
+    endif
+    
+    if (N == 2)
+      Succ = horzcat(Succ,vertcat(simplex(:,i),fysimplex(i)));
+    endif
+  endfor
+  
+  % Computing the gradient: ST g = deltaf
+  % Establishing ST = [ y1-y0 ... yn-y0 ] 
+  simplex = transpose (simplex);
+  y0 = simplex(successfulDirection,:);
+  ST = vertcat(simplex(1:successfulDirection-1,:),simplex(successfulDirection+1:end,:));
+  ST = ST - y0;
+  % Establishing deltaf = [fy1-fy0 ... fyn - fy0]
+  fy0 = fysimplex (successfulDirection);
+  deltaf = vertcat (fysimplex(1:successfulDirection-1,:),fysimplex(successfulDirection+1:end,:));
+  deltaf = deltaf - fy0;
+  % Gradient ST g = deltaf
+  g = linsolve(ST,deltaf,struct());
+  g_unit = -g ./norm(g);
+ 
+  % Computing rotation matrix R * B(:,successfulDirection) = g_unit
+  R = g_unit / B(:,successfulDirection);
+  
+  % Rotating all basis
+  B = R * B;
+   
+  % Debug 
+  %plot(Succ(1,1:end),Succ(2,1:end),"-sk", "MarkerFaceColor", "k"); 
+  %hold on
+  %quiver(y0(1),y0(2),g_unit(1),g_unit(2));
+  %pause
+endfunction
+
+
+% --------------------  leadingVectorBasis --------------------------------  
 function leadingVectorBasis()
   global B;
   global xk;
@@ -217,11 +287,66 @@ function leadingVectorBasis()
  
 endfunction
 
+% --------------------  Gradient step --------------------------------  
+function ksuccessful = gradientstep()
+  global strfitnessfct;  % name of objective/fitness function
+  global N;               % number of objective variables/problem dimension
+  global alphak;
+  global betak;
+  global xk;
+  global k;
+  global numberevaluations;
+  global ksuccessful;
+  global B;
+  global fxk;
+  global Succ; % Matrix to keep successful evaluations
+  global Unsucc; % Matrix to keep successful evaluations
+  global tabu;
+  global successfulDirection;
+  global thetak;
+ 
+  % Polling step procedure
+  ksuccessful = 0;
+
+  xg = xk + betak .* B(:,successfulDirection); 
+  newfval = feval(strfitnessfct, xg);
+  numberevaluations ++;  
+  
+  if ( newfval < fxk )
+        ksuccessful = 1;
+        if (N == 2)
+          Succ = horzcat(Succ,vertcat(xg,newfval));
+        endif
+  else
+        ksuccessful = 0;
+        if (N == 2)
+          Unsucc = horzcat(Unsucc,vertcat(xg,newfval));
+        endif
+  endif
+  
+  % Mesh procedure
+  if ksuccessful
+    tabu = xk;
+    xk = xg;
+    fxk = newfval;
+    betak = betak * 2;  
+  endif
+  
+  % Increase iterations
+  k = k + 1;
+  
+  %printf("Iter %d fx %f Vector %s \n",k,fxk,mat2str(transpose(xk)));
+  %printf("Iter %d fx %f\n",k,fxk);
+  
+endfunction
+
+
 % --------------------  Poll step --------------------------------  
 function ksuccessful = pollstep(order,tauplus,tauminus)
   global strfitnessfct;  % name of objective/fitness function
   global N;               % number of objective variables/problem dimension
   global alphak;
+  global betak;
   global xk;
   global k;
   global numberevaluations;
@@ -247,6 +372,7 @@ function ksuccessful = pollstep(order,tauplus,tauminus)
   % Polling step procedure
   ksuccessful = 0;
   directionk1 = 0;
+  betak = alphak;
   xk1 = xk;
   fxk1 = realmax;
   
@@ -266,6 +392,11 @@ function ksuccessful = pollstep(order,tauplus,tauminus)
       
       if ( newfval < fxk )
         ksuccessful = 1;
+        
+        %if ( i != successfulDirection )
+          %[xpp, newfval] = rotationstep(directionk1,xk1,fxk1,unifrnd (0,0.01745));
+        %endif
+        
         successfulDirection = i;
         if (N == 2)
           Succ = horzcat(Succ,vertcat(xpp,newfval));
@@ -296,6 +427,7 @@ function ksuccessful = pollstep(order,tauplus,tauminus)
     thetak = thetak/2;
   endif
   
+
   % Increase iterations
   k = k + 1;
   
@@ -618,8 +750,8 @@ function plot3D()
   hold on;
   contour(x1,x2,f_tot);
   %plot(xk(1),xk(2),"s");
-  plot(Succ(2,1:end),Succ(1,1:end),"s");
-  %plot(Unsucc(1,1:end),Unsucc(2,1:end),"*");
+  plot(Succ(2,1:end),Succ(1,1:end),"-sk", "MarkerFaceColor", "k");plot(Succ(2,1:end),Succ(1,1:end),"-sk", "MarkerFaceColor", "k");
+  plot(Unsucc(2,1:end),Unsucc(1,1:end),"*");
   hold off;
   
 end
