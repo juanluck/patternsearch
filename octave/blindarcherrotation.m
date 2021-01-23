@@ -60,11 +60,21 @@ function [retval] = blindarcherrotation(x0,alpha0,objectivefunction,basis,order,
   global fxk;
   global Succ; % Matrix to keep successful evaluations
   global Unsucc; % Matrix to keep successful evaluations
+  global GradientChangeRecord;
   global tabu; % Not to evaluate the last successful move
   global successfulDirection;
   global RmatrixFunction;
   global thetak;
+  global basisToPrint;
   
+  global recordactivated;
+  global recordedpoints;
+  global recordcount;
+  global eigenrotations;
+  
+  recordactivated=0;
+  recordcount=0;
+  eigenrotations=0;
   % Testing rotations
   %Basis = eye(3);
   %pos = 2;
@@ -73,6 +83,8 @@ function [retval] = blindarcherrotation(x0,alpha0,objectivefunction,basis,order,
   %return;
   
   RmatrixFunction = zeros (3, 0);
+  GradientChangeRecord = zeros(0);
+  basisToPrint = zeros(0);
   
   if nargin == 0
     x0 = (10.*rand(2,1))-5; alpha0=0.2; objectivefunction='rotatedEllipsoid';
@@ -142,14 +154,17 @@ function [retval] = blindarcherrotation(x0,alpha0,objectivefunction,basis,order,
   %printf("Time,iterations,evaluations,fitness \n");
   start = time();
   leadingVectorBasis();
-  while (k < 10000) && (fxk > 0.01)
+  while (k < 1000) && (fxk > 0.01)
     if ( gradientstep() == 0 )
+      %while (!pollstep(ord,taup,taum)) && (k < 1000) && (fxk > 0.01)
+      %endwhile
       pollstep(ord,taup,taum);
       %leadingVectorBasis();
     endif
   endwhile
   stop = time();
   printf("%f,%d,%d,%f\n",(stop-start),k,numberevaluations,fxk);
+  printf("Eigen rotations: %d\n",eigenrotations);
   % --------------------  End main loop ---------------------------------
   
   % Plotting for 2D functions
@@ -158,11 +173,11 @@ function [retval] = blindarcherrotation(x0,alpha0,objectivefunction,basis,order,
   endif
   
   retval = numberevaluations;
-  clear strfitnessfct N alphak xk k numberevaluations ksuccessful B fxk Succ Unsucc successfulDirection tabu RmatrixFunction;  
+  clear GradientChangeRecord eigenrotations recordactivated recordedpoints recordcount strfitnessfct N alphak xk k numberevaluations ksuccessful B fxk Succ Unsucc successfulDirection tabu RmatrixFunction;  
 endfunction
 
 % --------------------  leadingVectorBasis --------------------------------  
-function leadingVectorBasis()
+function ksuccessful = leadingVectorBasis()
   global B;
   global xk;
   global alphak;
@@ -177,7 +192,7 @@ function leadingVectorBasis()
   leadingDirection = 0;
   xk1 = xk;
   fxk1 = realmax;
-  
+  ksuccessful = 0;
   
   for i = 1:columns(B)
     xpp = xk + alphak .* B(:,i);
@@ -204,19 +219,19 @@ function leadingVectorBasis()
 %    fxk = fBest;
 %  endif
   
-  [x,fx] = rotationstep(leadingDirection,xk1,fxk1,pi/8);
-  if (N == 2)
-    Succ = horzcat(Succ,vertcat(x,fx));
-  endif
-  [x,fx] = rotationstep(leadingDirection,x,fx,pi/16);
-  if (N == 2)
-    Succ = horzcat(Succ,vertcat(x,fx));
-  endif
-  [x,fx] = rotationstep(leadingDirection,x,fx,pi/32);
+  theta = pi/32;
+  [x,fx,successful] = rotationstep(leadingDirection,xk1,fxk1,theta);
   if (N == 2)
     Succ = horzcat(Succ,vertcat(x,fx));
   endif
   
+  while (successful)
+    theta = theta / 2;
+    [x,fx,successful] = rotationstep(leadingDirection,x,fx,theta);
+    if (N == 2)
+      Succ = horzcat(Succ,vertcat(x,fx));
+    endif
+  endwhile  
  
 endfunction
 
@@ -238,6 +253,9 @@ function ksuccessful = gradientstep()
   global successfulDirection;
   global thetak;
  
+  global recordactivated;
+  global recordedpoints;
+  global recordcount;
   % Polling step procedure
   ksuccessful = 0;
 
@@ -263,6 +281,9 @@ function ksuccessful = gradientstep()
     xk = xg;
     fxk = newfval;
     betak = betak * 2;  
+    if (recordactivated)
+      recordedpoints = horzcat(recordedpoints,xk);
+    endif
   endif
   
   % Increase iterations
@@ -288,10 +309,16 @@ function ksuccessful = pollstep(order,tauplus,tauminus)
   global fxk;
   global Succ; % Matrix to keep successful evaluations
   global Unsucc; % Matrix to keep successful evaluations
+  global GradientChangeRecord;
   global tabu;
   global successfulDirection;
   global thetak;
   
+  global recordactivated;
+  global recordedpoints;
+  global recordcount;
+  global eigenrotations;
+  global basisToPrint;
   
   % Generating order of evaluation
   if strcmp(order,'successful')
@@ -326,9 +353,10 @@ function ksuccessful = pollstep(order,tauplus,tauminus)
       if ( newfval < fxk )
         ksuccessful = 1;
         
-        %if ( i != successfulDirection )
-          [xpp, newfval] = rotationstep(directionk1,xk1,fxk1,unifrnd (0,0.01745));
-        %endif
+        if ( i != successfulDirection )
+          %[xpp, newfval] = rotationstep(directionk1,xk1,fxk1,unifrnd (0,0.01745));
+          %GradientChangeRecord = horzcat(GradientChangeRecord,vertcat(xpp,newfval));
+        endif
         
         successfulDirection = i;
         if (N == 2)
@@ -352,12 +380,38 @@ function ksuccessful = pollstep(order,tauplus,tauminus)
     thetak = pi/8;
     if (successfulDirection != orderOfEvalution(1))
       %[x, fx] = rotationstep(directionk1,xk1,fxk1,thetak);
+       GradientChangeRecord = horzcat(GradientChangeRecord,vertcat(xpp,newfval));
+       recordactivated = 1;
+       recordcount++;
+       recordedpoints = horzcat(recordedpoints,xk);
+    endif
+    
+    if (recordactivated)
+      recordedpoints = horzcat(recordedpoints,xk);
     endif
 
    else
     alphak = alphak * tauminus;
+    betak=alphak;
     [x, fx] = rotationstep(directionk1,xk1,fxk1,thetak);
     thetak = thetak/2;
+    recordactivated = 0;
+    recordedpoints = zeros(0);
+    recordcount = 0;
+    %printBasis;
+  endif
+  
+  if (recordcount >= 5)
+    %%Eigenvector rotation
+    
+    performEigenRotation();
+    
+    %%Reset recordedpoints
+    recordactivated = 0;
+    recordedpoints = zeros(0);
+    recordcount = 0;
+    eigenrotations++;
+    
   endif
   
   % Increase iterations
@@ -368,8 +422,80 @@ function ksuccessful = pollstep(order,tauplus,tauminus)
   
 endfunction
 
+% --------------------  Rotation based on eigen vectors ------------------  
+function performEigenRotation()
+global strfitnessfct;  % name of objective/fitness function
+  global B;
+  global successfulDirection;
+  global recordedpoints;
+  
+  % Check: https://es.mathworks.com/help/matlab/ref/eig.html
+  C = cov(transpose(recordedpoints));
+  [V,D] = eig(C);
+  [d,ind] = sort(diag(D));
+  Vs = V(:,ind);
+
+  % Calculating the rotation matrix
+  eigenvector = Vs(:,size(Vs,1));
+  eig_unit = eigenvector ./norm(eigenvector)
+  leadingVector = B(:,successfulDirection)
+  R = rotationFromTwoVectors(leadingVector,eig_unit)
+  
+  % Rotating the basis
+  %disp("Before rotation");
+  %printBasis;
+  B
+  B = R * B
+  %disp("After rotation");
+  printBasis;
+  
+endfunction
+
+% % --------------------  Rotation From two vectors --------------------------
+% Rotation of x to y  
+% Check: https://math.stackexchange.com/questions/598750/finding-the-rotation-matrix-in-n-dimensions
+function R = rotationFromTwoVectors(x,y)
+
+  u=x/norm(x);
+
+  v=y-u'*y*u;
+
+  v=v/norm(v);
+
+  cost=x'*y/norm(x)/norm(y);
+
+  sint=sqrt(1-cost^2);
+
+  R = eye(length(x))-u*u'-v*v' + [u v]* [cost -sint;sint cost] *[u v]';
+
+endfunction
+
+% --------------------  print basis --------------------------------  
+function printBasis()
+
+  global B;
+  global xk;
+  global alphak;
+  global strfitnessfct;
+  global fxk;
+  global Succ;
+  global N;
+  global basisToPrint;
+ 
+  for i = 1:columns(B)
+    xpp = xk + alphak .* B(:,i);
+    newfval = feval(strfitnessfct, xpp);
+    
+    if (N == 2)
+      basisToPrint = horzcat(basisToPrint,vertcat(xpp,newfval));
+    endif
+    
+  endfor
+
+endfunction
+
 % --------------------  Rotation step --------------------------------  
-function [bestx, fxbest] = rotationstep(directionk1,xk1,fxk1,theta)
+function [bestx, fxbest,successful] = rotationstep(directionk1,xk1,fxk1,theta)
   global B;
   global xk;
   global fxk;
@@ -388,6 +514,7 @@ function [bestx, fxbest] = rotationstep(directionk1,xk1,fxk1,theta)
   % Obtain all the rotation matrices
   RotationMatrices = rotations(Basis,pos,theta);
   
+  successful = 0;
   % Compute the best rotation matrix
   bestBasis = B;
   bestx = xk1;
@@ -399,6 +526,7 @@ function [bestx, fxbest] = rotationstep(directionk1,xk1,fxk1,theta)
     numberevaluations ++;
     
     if ( newfval < fxbest )
+      successful = 1;
       bestBasis = auxBasis;
       bestx = x;
       fxbest = newfval;
@@ -645,6 +773,8 @@ function plot3D()
   global xk;
   global Succ;
   global Unsucc;
+  global GradientChangeRecord;
+  global basisToPrint;
   
   x1min=-5;
   x1max=5;
@@ -683,7 +813,9 @@ function plot3D()
   contour(x1,x2,f_tot);
   %plot(xk(1),xk(2),"s");
   plot(Succ(2,1:end),Succ(1,1:end),"-sk", "MarkerFaceColor", "k");
-  %plot(Unsucc(1,1:end),Unsucc(2,1:end),"*");
+  plot(GradientChangeRecord(2,1:end),GradientChangeRecord(1,1:end),"sr", "markersize", 10, "color", "blue"); 
+  plot(Unsucc(2,1:end),Unsucc(1,1:end),"*");
+  plot(basisToPrint(2,1:end),basisToPrint(1,1:end),"^","markersize", 16,"color","red");
   hold off;
   
 end

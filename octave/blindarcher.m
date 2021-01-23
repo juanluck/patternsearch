@@ -133,7 +133,7 @@ function [retval] = blindarcher(x0,alpha0,objectivefunction,basis,order,tauplus,
 
   
   % Rotation
-  thetak = pi/8;
+  thetak = 0.5235988;#pi/8;
   
   % --------------------  End Initialization ---------------------------- 
   
@@ -143,12 +143,12 @@ function [retval] = blindarcher(x0,alpha0,objectivefunction,basis,order,tauplus,
   start = time();
   %leadingVectorBasis();
   gradientOfSimplex();
-  while (k < 1000) && (fxk > 0.01)
+  while (k < N*10000) && (fxk > 0.01)
     if ( !gradientstep() )
       %alphak = alphak/2;
       %betak = alphak;
       %gradientOfSimplex();
-      while (! pollstep(ord,taup,taum))
+      while (! pollstep(ord,taup,taum)) && (k < N*10000) 
       endwhile
     endif
   endwhile
@@ -416,7 +416,8 @@ function ksuccessful = pollstep(order,tauplus,tauminus)
     xk = xpp;
     fxk = newfval;
     alphak = alphak * tauplus;
-    thetak = pi/8;
+    %thetak = pi/8;
+    thetak = 0.5235988;
     if (successfulDirection != orderOfEvalution(1))
       %[x, fx] = rotationstep(directionk1,xk1,fxk1,thetak);
     endif
