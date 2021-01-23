@@ -85,6 +85,7 @@ function [retval] = blindarcherrotation(x0,alpha0,objectivefunction,basis,order,
   RmatrixFunction = zeros (3, 0);
   GradientChangeRecord = zeros(0);
   basisToPrint = zeros(0);
+  recordedpoints = zeros(0);
   
   if nargin == 0
     x0 = (10.*rand(2,1))-5; alpha0=0.2; objectivefunction='rotatedEllipsoid';
@@ -154,7 +155,7 @@ function [retval] = blindarcherrotation(x0,alpha0,objectivefunction,basis,order,
   %printf("Time,iterations,evaluations,fitness \n");
   start = time();
   leadingVectorBasis();
-  while (k < 1000) && (fxk > 0.01)
+  while (k < 10000) && (fxk > 0.01)
     if ( gradientstep() == 0 )
       %while (!pollstep(ord,taup,taum)) && (k < 1000) && (fxk > 0.01)
       %endwhile
@@ -437,17 +438,17 @@ global strfitnessfct;  % name of objective/fitness function
 
   % Calculating the rotation matrix
   eigenvector = Vs(:,size(Vs,1));
-  eig_unit = eigenvector ./norm(eigenvector)
-  leadingVector = B(:,successfulDirection)
-  R = rotationFromTwoVectors(leadingVector,eig_unit)
+  eig_unit = eigenvector ./norm(eigenvector);
+  leadingVector = B(:,successfulDirection);
+  R = rotationFromTwoVectors(leadingVector,eig_unit);
   
   % Rotating the basis
   %disp("Before rotation");
   %printBasis;
-  B
-  B = R * B
+  %B
+  B = R * B;
   %disp("After rotation");
-  printBasis;
+  %printBasis;
   
 endfunction
 
@@ -815,7 +816,7 @@ function plot3D()
   plot(Succ(2,1:end),Succ(1,1:end),"-sk", "MarkerFaceColor", "k");
   plot(GradientChangeRecord(2,1:end),GradientChangeRecord(1,1:end),"sr", "markersize", 10, "color", "blue"); 
   plot(Unsucc(2,1:end),Unsucc(1,1:end),"*");
-  plot(basisToPrint(2,1:end),basisToPrint(1,1:end),"^","markersize", 16,"color","red");
+  %plot(basisToPrint(2,1:end),basisToPrint(1,1:end),"^","markersize", 16,"color","red");
   hold off;
   
 end
